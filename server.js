@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -5,32 +6,360 @@ const proxy = require('./gateway/proxy');
 
 const PORT = process.env.PORT || 3000;
 const cssPath = path.join(__dirname, 'styling', 'style.css');
+const dashboardJsPath = path.join(__dirname, 'public', 'dashboard.js');
+const loginHtmlPath = path.join(__dirname, 'views', 'login.html');
+const dashboardHtmlPath = path.join(__dirname, 'views', 'dashboard.html');
 
-const serveFile = (res, filePath, contentType, errorMessage) => {
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'Admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-env';
+
+const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_BLOCK_MS = 15 * 60 * 1000;
+
+const loginAttempts = new Map();
+
+const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+};
+
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+
+  return req.socket.remoteAddress || 'unknown';
+};
+
+const timingSafeEqual = (a, b) => {
+  const aBuf = Buffer.from(String(a));
+  const bBuf = Buffer.from(String(b));
+
+  if (aBuf.length !== bBuf.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(aBuf, bBuf);
+};
+
+const parseCookies = (cookieHeader = '') => {
+  return cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce((acc, part) => {
+      const separatorIndex = part.indexOf('=');
+      if (separatorIndex === -1) {
+        return acc;
+      }
+
+      const key = part.slice(0, separatorIndex);
+      const value = decodeURIComponent(part.slice(separatorIndex + 1));
+      acc[key] = value;
+      return acc;
+    }, {});
+};
+
+const sign = (value) => crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('base64url');
+
+const createSessionToken = () => {
+  const payload = {
+    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
+    nonce: crypto.randomBytes(12).toString('hex')
+  };
+
+  const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const signature = sign(encodedPayload);
+  return `${encodedPayload}.${signature}`;
+};
+
+const verifySessionToken = (token) => {
+  if (!token || !token.includes('.')) {
+    return false;
+  }
+
+  const [encodedPayload, signature] = token.split('.');
+  const expectedSignature = sign(encodedPayload);
+
+  if (!timingSafeEqual(signature, expectedSignature)) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+    if (!payload.exp || Date.now() > Number(payload.exp)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readFileUtf8 = (filePath) =>
+  new Promise((resolve, reject) => {
+    fs.readFile(filePath, 'utf8', (err, content) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      resolve(content);
+    });
+  });
+
+const readRequestBody = (req) =>
+  new Promise((resolve, reject) => {
+    let body = '';
+
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 100_000) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+      }
+    });
+
+    req.on('end', () => resolve(body));
+    req.on('error', () => reject(new Error('Failed to read request body')));
+  });
+
+const buildCookie = (name, value, options = {}) => {
+  const parts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+
+  if (typeof options.maxAge === 'number') {
+    parts.push(`Max-Age=${options.maxAge}`);
+  }
+
+  if (options.secure) {
+    parts.push('Secure');
+  }
+
+  return parts.join('; ');
+};
+
+const sendHtml = (res, statusCode, html, extraHeaders = {}) => {
+  res.writeHead(statusCode, {
+    ...securityHeaders,
+    'Content-Type': 'text/html; charset=utf-8',
+    ...extraHeaders
+  });
+  res.end(html);
+};
+
+const sendJson = (res, statusCode, payload, extraHeaders = {}) => {
+  res.writeHead(statusCode, {
+    ...securityHeaders,
+    'Content-Type': 'application/json; charset=utf-8',
+    ...extraHeaders
+  });
+  res.end(JSON.stringify(payload));
+};
+
+const sendText = (res, statusCode, message) => {
+  res.writeHead(statusCode, {
+    ...securityHeaders,
+    'Content-Type': 'text/plain; charset=utf-8'
+  });
+  res.end(message);
+};
+
+const redirect = (res, location, extraHeaders = {}) => {
+  res.writeHead(302, {
+    ...securityHeaders,
+    Location: location,
+    ...extraHeaders
+  });
+  res.end();
+};
+
+const serveStaticUtf8 = (res, filePath, contentType, errorMessage) => {
   fs.readFile(filePath, 'utf8', (err, content) => {
     if (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end(errorMessage);
+      sendText(res, 500, errorMessage);
       return;
     }
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {
+      ...securityHeaders,
+      'Content-Type': contentType
+    });
     res.end(content);
   });
 };
 
-const sendJson = (res, statusCode, payload) => {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(payload));
+const checkRateLimit = (ip) => {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (!record) {
+    return { blocked: false };
+  }
+
+  if (record.blockedUntil && now < record.blockedUntil) {
+    return { blocked: true };
+  }
+
+  if (now - record.windowStart > LOGIN_ATTEMPT_WINDOW_MS) {
+    loginAttempts.delete(ip);
+    return { blocked: false };
+  }
+
+  return { blocked: false };
 };
 
-const server = http.createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/style.css') {
-    serveFile(res, cssPath, 'text/css; charset=utf-8', 'Failed to load CSS');
+const recordFailedAttempt = (ip) => {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+
+  if (!record || now - record.windowStart > LOGIN_ATTEMPT_WINDOW_MS) {
+    loginAttempts.set(ip, {
+      count: 1,
+      windowStart: now,
+      blockedUntil: 0
+    });
     return;
   }
 
-  if (req.method === 'GET' && req.url === '/api/items') {
+  record.count += 1;
+  if (record.count >= LOGIN_MAX_ATTEMPTS) {
+    record.blockedUntil = now + LOGIN_BLOCK_MS;
+  }
+};
+
+const clearAttempts = (ip) => {
+  loginAttempts.delete(ip);
+};
+
+const renderLoginPage = async ({ showError, csrfToken }) => {
+  const loginTemplate = await readFileUtf8(loginHtmlPath);
+  const errorHtml = showError ? '<p class="login-error">Invalid credentials or blocked attempt.</p>' : '';
+
+  return loginTemplate
+    .replace('{{LOGIN_ERROR}}', errorHtml)
+    .replace('{{CSRF_TOKEN}}', csrfToken);
+};
+
+const isAuthenticated = (req) => {
+  const cookies = parseCookies(req.headers.cookie || '');
+  return verifySessionToken(cookies.session);
+};
+
+const server = http.createServer(async (req, res) => {
+  const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const secureCookie = requestUrl.protocol === 'https:';
+
+  if (req.method === 'GET' && requestUrl.pathname === '/style.css') {
+    serveStaticUtf8(res, cssPath, 'text/css; charset=utf-8', 'Failed to load CSS');
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/dashboard.js') {
+    serveStaticUtf8(
+      res,
+      dashboardJsPath,
+      'application/javascript; charset=utf-8',
+      'Failed to load dashboard.js'
+    );
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/login') {
+    if (isAuthenticated(req)) {
+      redirect(res, '/');
+      return;
+    }
+
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    const showError = requestUrl.searchParams.get('error') === '1';
+
+    try {
+      const html = await renderLoginPage({ showError, csrfToken });
+      sendHtml(res, 200, html, {
+        'Set-Cookie': buildCookie('login_csrf', csrfToken, {
+          maxAge: 300,
+          secure: secureCookie
+        })
+      });
+    } catch {
+      sendText(res, 500, 'Failed to render login page');
+    }
+
+    return;
+  }
+
+  if (req.method === 'POST' && requestUrl.pathname === '/login') {
+    const ip = getClientIp(req);
+    const rateStatus = checkRateLimit(ip);
+
+    if (rateStatus.blocked) {
+      redirect(res, '/login?error=1');
+      return;
+    }
+
+    try {
+      const rawBody = await readRequestBody(req);
+      const params = new URLSearchParams(rawBody);
+      const username = params.get('username') || '';
+      const password = params.get('password') || '';
+      const csrf = params.get('csrf') || '';
+
+      const cookies = parseCookies(req.headers.cookie || '');
+      const csrfFromCookie = cookies.login_csrf || '';
+
+      const validCsrf = csrfFromCookie && timingSafeEqual(csrfFromCookie, csrf);
+      const validUser = timingSafeEqual(username, ADMIN_USERNAME);
+      const validPassword = timingSafeEqual(password, ADMIN_PASSWORD);
+
+      if (validCsrf && validUser && validPassword) {
+        clearAttempts(ip);
+        const sessionToken = createSessionToken();
+        redirect(res, '/', {
+          'Set-Cookie': [
+            buildCookie('session', sessionToken, { maxAge: SESSION_TTL_SECONDS, secure: secureCookie }),
+            buildCookie('login_csrf', '', { maxAge: 0, secure: secureCookie })
+          ]
+        });
+      } else {
+        recordFailedAttempt(ip);
+        redirect(res, '/login?error=1', {
+          'Set-Cookie': buildCookie('login_csrf', '', { maxAge: 0, secure: secureCookie })
+        });
+      }
+    } catch {
+      recordFailedAttempt(ip);
+      redirect(res, '/login?error=1');
+    }
+
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/logout') {
+    redirect(res, '/login', {
+      'Set-Cookie': buildCookie('session', '', { maxAge: 0, secure: secureCookie })
+    });
+    return;
+  }
+
+  if (!isAuthenticated(req)) {
+    if (requestUrl.pathname.startsWith('/api/')) {
+      sendJson(res, 401, { error: 'Unauthorized' });
+    } else {
+      redirect(res, '/login');
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/api/items') {
     try {
       const items = await proxy.getHubData();
       sendJson(res, 200, { items });
@@ -41,7 +370,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/api/scan') {
+  if (req.method === 'POST' && requestUrl.pathname === '/api/scan') {
     try {
       const scanResult = await proxy.getHubData({ simulateScan: true });
       sendJson(res, 200, scanResult);
@@ -52,121 +381,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const dashboardHtml = `
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Asset Management Dashboard</title>
-    <link rel="stylesheet" href="/style.css" />
-  </head>
-  <body>
-    <div class="card">
-      <div class="header">
-        <span>Asset Management Dashboard</span>
-        <div class="header-actions">
-          <button id="scan-button" class="scan-btn" type="button">Scan</button>
-          <span id="scan-status" class="scan-status"></span>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Last Location</th>
-            <th>Last Update</th>
-          </tr>
-        </thead>
-        <tbody id="items-body">
-          <tr>
-            <td colspan="3">Loading items...</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  if (req.method === 'GET' && requestUrl.pathname === '/') {
+    try {
+      const html = await readFileUtf8(dashboardHtmlPath);
+      sendHtml(res, 200, html);
+    } catch {
+      sendText(res, 500, 'Failed to render dashboard');
+    }
+    return;
+  }
 
-    <script>
-      const tbody = document.getElementById('items-body');
-      const scanButton = document.getElementById('scan-button');
-      const scanStatus = document.getElementById('scan-status');
-
-      const escapeHtml = (value) =>
-        String(value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-
-      const setStatus = (message) => {
-        scanStatus.textContent = message;
-      };
-
-      const renderRows = (items) => {
-        if (!Array.isArray(items) || items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3">No items found</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = items
-          .map((item) => {
-            const name = escapeHtml(item.name ?? '');
-            const location = escapeHtml(item.lastLocation ?? '');
-            const lastUpdate = escapeHtml(item.lastUpdate ?? 'Not scanned yet');
-            return '<tr><td>' + name + '</td><td>' + location + '</td><td>' + lastUpdate + '</td></tr>';
-          })
-          .join('');
-      };
-
-      const loadItems = async () => {
-        try {
-          setStatus('Loading');
-          const response = await fetch('/api/items');
-          const payload = await response.json();
-
-          if (!response.ok) {
-            throw new Error(payload.error || 'Failed to load items');
-          }
-
-          renderRows(payload.items);
-          setStatus('Ready');
-        } catch (error) {
-          tbody.innerHTML =
-            '<tr><td colspan="3">' + escapeHtml(error.message) + '</td></tr>';
-          setStatus('Load failed');
-        }
-      };
-
-      scanButton.addEventListener('click', async () => {
-        try {
-          scanButton.disabled = true;
-          setStatus('Scanning');
-
-          const response = await fetch('/api/scan', { method: 'POST' });
-          const payload = await response.json();
-
-          if (!response.ok) {
-            throw new Error(payload.error || 'Scan failed');
-          }
-
-          renderRows(payload.items);
-          setStatus('Scan complete: ' + (payload.updatedCount ?? 0) + ' items updated');
-        } catch (error) {
-          setStatus('Scan failed: ' + error.message);
-        } finally {
-          scanButton.disabled = false;
-        }
-      });
-
-      loadItems();
-    </script>
-  </body>
-</html>
-`;
-
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(dashboardHtml);
+  sendText(res, 404, 'Not Found');
 });
 
 server.listen(PORT, '127.0.0.1', () => {

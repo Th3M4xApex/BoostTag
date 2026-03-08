@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="login-wrap">
+      <form class="login-card" method="post" action="/login">
+        <h1>Login</h1>
+        <p class="login-hint">Use username <strong>Admin</strong> and password <strong>Admin</strong>.</p>
+        {{LOGIN_ERROR}}
+        <input type="hidden" name="csrf" value="{{CSRF_TOKEN}}" />
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button class="scan-btn" type="submit">Sign In</button>
+      </form>
+    </div>
+  </body>
+</html>
