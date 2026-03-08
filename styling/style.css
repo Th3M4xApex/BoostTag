@@ -1,0 +1,94 @@
+body {
+  margin: 0;
+  padding: 24px;
+  font-family: Arial, sans-serif;
+  background: #f0fbf2;
+  color: #1f2937;
+}
+
+.card {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #b7e4c7;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.12);
+  overflow: hidden;
+}
+
+.header {
+  padding: 16px 20px;
+  background: #86efac;
+  color: #14532d;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scan-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: #14532d;
+  min-width: 110px;
+  text-align: right;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 14px 20px;
+  text-align: left;
+  border-bottom: 1px solid #dcfce7;
+}
+
+th {
+  background: #dcfce7;
+  color: #14532d;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: #f0fdf4;
+}
+
+.last-update-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-btn {
+  border: 1px solid #16a34a;
+  background: #22c55e;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scan-btn:hover {
+  background: #16a34a;
+}
+
+.scan-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

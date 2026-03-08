@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Cabernet Sauvignon",
+    "lastLocation": "Restaurant Cellar - Shelf A1",
+    "lastUpdate": "Mar 08, 2026, 09:12:44 AM"
+  },
+  {
+    "name": "Pinot Noir",
+    "lastLocation": "Restaurant Main Bar - Rack 2",
+    "lastUpdate": "Mar 08, 2026, 09:18:11 AM"
+  },
+  {
+    "name": "Merlot Reserve",
+    "lastLocation": "Liquor Store Downtown - Aisle 4",
+    "lastUpdate": "Mar 08, 2026, 09:24:39 AM"
+  },
+  {
+    "name": "Chardonnay Classic",
+    "lastLocation": "Restaurant Patio Bar - Cooler 1",
+    "lastUpdate": "Mar 08, 2026, 09:27:05 AM"
+  },
+  {
+    "name": "Sauvignon Blanc",
+    "lastLocation": "Liquor Store Uptown - Chiller B",
+    "lastUpdate": "Mar 08, 2026, 09:31:58 AM"
+  },
+  {
+    "name": "Syrah Estate",
+    "lastLocation": "Restaurant Cellar - Bin 7",
+    "lastUpdate": "Mar 08, 2026, 09:36:22 AM"
+  },
+  {
+    "name": "Malbec Select",
+    "lastLocation": "Liquor Store Eastside - Aisle 6",
+    "lastUpdate": "Mar 08, 2026, 09:41:46 AM"
+  },
+  {
+    "name": "Riesling Dry",
+    "lastLocation": "Restaurant VIP Lounge - Rack 1",
+    "lastUpdate": "Mar 08, 2026, 09:45:10 AM"
+  },
+  {
+    "name": "Zinfandel Old Vine",
+    "lastLocation": "Liquor Store West End - Display Table",
+    "lastUpdate": "Mar 08, 2026, 09:49:33 AM"
+  },
+  {
+    "name": "Rose Provence",
+    "lastLocation": "Restaurant Rooftop Bar - Cooler 3",
+    "lastUpdate": "Mar 08, 2026, 09:53:57 AM"
+  }
+]
