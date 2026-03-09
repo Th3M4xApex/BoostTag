@@ -1,13 +1,13 @@
 body {
   margin: 0;
-  padding: 24px;
   font-family: Arial, sans-serif;
   background: #f0fbf2;
   color: #1f2937;
 }
 
 .login-wrap {
-  min-height: calc(100vh - 48px);
+  min-height: 100vh;
+  padding: 24px;
   display: grid;
   place-items: center;
 }
@@ -54,13 +54,101 @@ body {
 }
 
 .card {
-  max-width: 900px;
-  margin: 0 auto;
   background: #ffffff;
   border: 1px solid #b7e4c7;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(34, 197, 94, 0.12);
   overflow: hidden;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+.sidebar {
+  background: #14532d;
+  color: #ffffff;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 2px 8px 14px;
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+.nav-item {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #dcfce7;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+  background: #22c55e;
+  color: #14532d;
+}
+
+.nav-link {
+  text-decoration: none;
+  display: block;
+}
+
+.main-content {
+  padding: 20px;
+  overflow: auto;
+}
+
+.top-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sidebar-toggle {
+  display: none;
+  border: 1px solid #16a34a;
+  background: #22c55e;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.settings-blank {
+  min-height: 420px;
+  background: #ffffff;
+  border: 1px dashed #86efac;
+  border-radius: 10px;
 }
 
 .header {
@@ -87,17 +175,6 @@ body {
   color: #14532d;
   min-width: 110px;
   text-align: right;
-}
-
-.logout-link {
-  color: #14532d;
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.logout-link:hover {
-  text-decoration: underline;
 }
 
 table {
@@ -149,4 +226,26 @@ tbody tr:hover {
 .scan-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 240px;
+    z-index: 10;
+    transform: translateX(-100%);
+  }
+
+  .app-shell.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: inline-block;
+  }
 }

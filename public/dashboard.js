@@ -1,3 +1,12 @@
+const appShell = document.getElementById('app-shell');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const navItems = document.querySelectorAll('.nav-item');
+const views = {
+  dashboard: document.getElementById('view-dashboard'),
+  settings: document.getElementById('view-settings')
+};
+
 const tbody = document.getElementById('items-body');
 const scanButton = document.getElementById('scan-button');
 const scanStatus = document.getElementById('scan-status');
@@ -67,6 +76,28 @@ scanButton.addEventListener('click', async () => {
   } finally {
     scanButton.disabled = false;
   }
+});
+
+const setView = (viewName) => {
+  Object.entries(views).forEach(([name, section]) => {
+    section.classList.toggle('active', name === viewName);
+  });
+
+  navItems.forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === viewName);
+  });
+
+  appShell.classList.remove('sidebar-open');
+};
+
+navItems.forEach((button) => {
+  button.addEventListener('click', () => {
+    setView(button.dataset.view);
+  });
+});
+
+sidebarToggle.addEventListener('click', () => {
+  appShell.classList.toggle('sidebar-open');
 });
 
 loadItems();

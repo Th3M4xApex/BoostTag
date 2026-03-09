@@ -7,29 +7,48 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div class="card">
-      <div class="header">
-        <span>Asset Management Dashboard</span>
-        <div class="header-actions">
-          <button id="scan-button" class="scan-btn" type="button">Scan</button>
-          <a class="logout-link" href="/logout">Logout</a>
-          <span id="scan-status" class="scan-status"></span>
+    <div class="app-shell" id="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-title">Menu</div>
+        <button class="nav-item active" type="button" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" type="button" data-view="settings">Settings</button>
+        <div class="sidebar-spacer"></div>
+        <a class="nav-item nav-link" href="/logout">Logout</a>
+      </aside>
+
+      <main class="main-content">
+        <div class="top-row">
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button">Menu</button>
         </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Last Location</th>
-            <th>Last Update</th>
-          </tr>
-        </thead>
-        <tbody id="items-body">
-          <tr>
-            <td colspan="3">Loading items...</td>
-          </tr>
-        </tbody>
-      </table>
+
+        <section id="view-dashboard" class="view active">
+          <div class="card">
+            <div class="header">
+              <span>Asset Management Dashboard</span>
+              <div class="header-actions">
+                <button id="scan-button" class="scan-btn" type="button">Scan</button>
+                <span id="scan-status" class="scan-status"></span>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Last Location</th>
+                  <th>Last Update</th>
+                </tr>
+              </thead>
+              <tbody id="items-body">
+                <tr>
+                  <td colspan="3">Loading items...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view settings-blank"></section>
+      </main>
     </div>
 
     <script src="/dashboard.js"></script>
