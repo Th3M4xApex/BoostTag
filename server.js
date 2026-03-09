@@ -133,6 +133,15 @@ const readRequestBody = (req) =>
     req.on('error', () => reject(new Error('Failed to read request body')));
   });
 
+const readJsonBody = async (req) => {
+  const rawBody = await readRequestBody(req);
+  try {
+    return JSON.parse(rawBody || '{}');
+  } catch {
+    throw new Error('Invalid JSON body');
+  }
+};
+
 const buildCookie = (name, value, options = {}) => {
   const parts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
 
@@ -375,6 +384,53 @@ const server = http.createServer(async (req, res) => {
       const scanResult = await proxy.getHubData({ simulateScan: true });
       sendJson(res, 200, scanResult);
     } catch (error) {
+      sendJson(res, 500, { error: error.message });
+    }
+
+    return;
+  }
+
+  if (req.method === 'PUT' && requestUrl.pathname === '/api/items/name') {
+    try {
+      const body = await readJsonBody(req);
+      const barcode = String(body.barcode || '').trim();
+      const name = String(body.name || '').trim();
+
+      if (!barcode || !name) {
+        sendJson(res, 400, { error: 'barcode and name are required' });
+        return;
+      }
+
+      const item = await proxy.updateItemName({ barcode, name });
+      sendJson(res, 200, { item });
+    } catch (error) {
+      if (error.message === 'Item not found') {
+        sendJson(res, 404, { error: error.message });
+        return;
+      }
+
+      sendJson(res, 500, { error: error.message });
+    }
+
+    return;
+  }
+
+  if (req.method === 'DELETE' && requestUrl.pathname.startsWith('/api/items/')) {
+    try {
+      const barcode = decodeURIComponent(requestUrl.pathname.replace('/api/items/', '')).trim();
+      if (!barcode) {
+        sendJson(res, 400, { error: 'barcode is required' });
+        return;
+      }
+
+      const result = await proxy.deleteItem({ barcode });
+      sendJson(res, 200, { deleted: result.barcode });
+    } catch (error) {
+      if (error.message === 'Item not found') {
+        sendJson(res, 404, { error: error.message });
+        return;
+      }
+
       sendJson(res, 500, { error: error.message });
     }
 

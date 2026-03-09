@@ -1,52 +1,47 @@
 [
   {
-    "name": "Cabernet Sauvignon",
-    "lastLocation": "Restaurant Cellar - Shelf A1",
+    "barcode": "BC-0001",
+    "name": "Pinot Noir",
     "lastUpdate": "Mar 08, 2026, 09:12:44 AM"
   },
   {
+    "barcode": "BC-0002",
     "name": "Pinot Noir",
-    "lastLocation": "Restaurant Main Bar - Rack 2",
     "lastUpdate": "Mar 08, 2026, 09:18:11 AM"
   },
   {
+    "barcode": "BC-0003",
     "name": "Merlot Reserve",
-    "lastLocation": "Liquor Store Downtown - Aisle 4",
     "lastUpdate": "Mar 08, 2026, 09:24:39 AM"
   },
   {
+    "barcode": "BC-0004",
     "name": "Chardonnay Classic",
-    "lastLocation": "Restaurant Patio Bar - Cooler 1",
     "lastUpdate": "Mar 08, 2026, 09:27:05 AM"
   },
   {
-    "name": "Sauvignon Blanc",
-    "lastLocation": "Liquor Store Uptown - Chiller B",
+    "barcode": "BC-0005",
+    "name": "Syrah Estate",
     "lastUpdate": "Mar 08, 2026, 09:31:58 AM"
   },
   {
+    "barcode": "BC-0006",
     "name": "Syrah Estate",
-    "lastLocation": "Restaurant Cellar - Bin 7",
     "lastUpdate": "Mar 08, 2026, 09:36:22 AM"
   },
   {
+    "barcode": "BC-0007",
     "name": "Malbec Select",
-    "lastLocation": "Liquor Store Eastside - Aisle 6",
     "lastUpdate": "Mar 08, 2026, 09:41:46 AM"
   },
   {
+    "barcode": "BC-0008",
     "name": "Riesling Dry",
-    "lastLocation": "Restaurant VIP Lounge - Rack 1",
     "lastUpdate": "Mar 08, 2026, 09:45:10 AM"
   },
   {
+    "barcode": "BC-0009",
     "name": "Zinfandel Old Vine",
-    "lastLocation": "Liquor Store West End - Display Table",
     "lastUpdate": "Mar 08, 2026, 09:49:33 AM"
-  },
-  {
-    "name": "Rose Provence",
-    "lastLocation": "Restaurant Rooftop Bar - Cooler 3",
-    "lastUpdate": "Mar 08, 2026, 09:53:57 AM"
   }
 ]

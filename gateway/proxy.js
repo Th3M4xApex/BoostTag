@@ -13,19 +13,6 @@ const timestampFormat = {
   hour12: true
 };
 
-const locationPools = [
-  'Restaurant Cellar - Shelf A1',
-  'Restaurant Main Bar - Rack 2',
-  'Restaurant Patio Bar - Cooler 1',
-  'Restaurant Rooftop Bar - Cooler 3',
-  'Restaurant VIP Lounge - Rack 1',
-  'Liquor Store Downtown - Aisle 4',
-  'Liquor Store Uptown - Chiller B',
-  'Liquor Store Eastside - Aisle 6',
-  'Liquor Store West End - Display Table',
-  'Liquor Store Northpoint - Reserve Cabinet'
-];
-
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 const pickRandomIndexes = (length, count) => {
@@ -47,6 +34,10 @@ const readSourceData = async () => {
   return items;
 };
 
+const writeSourceData = async (items) => {
+  await fs.writeFile(dataPath, `${JSON.stringify(items, null, 2)}\n`, 'utf8');
+};
+
 const getHubData = async ({ simulateScan = false } = {}) => {
   const items = await readSourceData();
 
@@ -65,7 +56,6 @@ const getHubData = async ({ simulateScan = false } = {}) => {
 
     return {
       ...item,
-      lastLocation: locationPools[randomInt(0, locationPools.length - 1)],
       lastUpdate: scannedAt
     };
   });
@@ -76,6 +66,37 @@ const getHubData = async ({ simulateScan = false } = {}) => {
   };
 };
 
+const updateItemName = async ({ barcode, name }) => {
+  const items = await readSourceData();
+  const index = items.findIndex((item) => item.barcode === barcode);
+
+  if (index === -1) {
+    throw new Error('Item not found');
+  }
+
+  items[index] = {
+    ...items[index],
+    name
+  };
+
+  await writeSourceData(items);
+  return items[index];
+};
+
+const deleteItem = async ({ barcode }) => {
+  const items = await readSourceData();
+  const filtered = items.filter((item) => item.barcode !== barcode);
+
+  if (filtered.length === items.length) {
+    throw new Error('Item not found');
+  }
+
+  await writeSourceData(filtered);
+  return { barcode };
+};
+
 module.exports = {
-  getHubData
+  getHubData,
+  updateItemName,
+  deleteItem
 };
